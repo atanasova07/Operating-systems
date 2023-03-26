@@ -92,3 +92,49 @@ cat /etc/passwd | cut -d ':' -f5 | cut -d ',' -f1 | awk '{if(length($2) > 6) pri
 ```shell
 cat /etc/passwd | cut -d ':' -f5 | cut -d ',' -f1 | awk '{if(length($2) < 8) print $0}'
 ```
+* Изведете целите редове от /etc/passwd за хората от предишната задача
+```shell
+
+```
+
+* Копирайте <РЕПО>/exercises/data/emp.data във вашата home директория.
+Посредством awk, използвайки копирания файл за входнни данни, изведете:
+- общия брой редове
+- третия ред
+- последното поле от всеки ред
+- последното поле на последния ред
+- всеки ред, който има повече от 4 полета
+- всеки ред, чието последно поле е по-голямо от 4
+- общия брой полета във всички редове
+- броя редове, в които се среща низът Beth
+- най-голямото трето поле и редът, който го съдържа
+- всеки ред, който има поне едно поле
+- всеки ред, който има повече от 17 знака
+- броя на полетата във всеки ред и самият ред
+- първите две полета от всеки ред, с разменени места
+- всеки ред така, че първите две полета да са с разменени места
+- всеки ред така, че на мястото на първото поле да има номер на реда
+- всеки ред без второто поле
+- за всеки ред, сумата от второ и трето поле
+- сумата на второ и трето поле от всеки ред
+```shell
+cat emp.data | awk 'BEGIN {count = 0} {count += 1} END {print count}'
+cat emp.data | awk 'NR == 3 {print $0}'
+cat emp.data | awk '{print $NF}'
+cat emp.data | awk 'END {print $NF}'
+cat emp.data | awk 'NF > 4 {print $0}'
+cat emp.data | awk '$NF > 4 {print $0}'
+cat emp.data | awk '{count += NF} END {print count}'
+cat emp.data | awk '/Beth/ {lined += 1} END {print lines}'
+cat emp.data | awk '$3 > max {max = $3; line = $0} END {print max " " line}'
+cat emp.data | awk '$3 > max {max = $3; line = $0} END {print max " " line}'
+cat emp.data | awk 'NF >= 1 {print $0}'
+cat emp.data | awk '/^.{17,}/ {print $0}'
+cat emp.data | awk '{print NF " " $0}'
+cat emp.data | awk '{print $2 " " $1}'
+cat emp.data | awk '{temp = $1; $1 = $2; $2 = temp; print $0}'
+cat emp.data | awk '{$1 = NR; print $0}'
+cat emp.data | awk '{$1 = ""; print $0}'
+cat emp.data | awk '{sum = $2 + $3; print sum}'
+cat emp.data | awk '{sum += $2 +$3} END {print sum}'
+```
