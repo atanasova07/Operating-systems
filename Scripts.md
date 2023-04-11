@@ -59,4 +59,45 @@ cat $f1 $f2 | sort -d -i >> $f3
 на завършване на командата с която сте проверили наличието на низа. 
 NB! Символният низ може да съдържа интервал (' ') в себе си.
 ```shell
+#!/bin/bash
+
+read -p "Input file name and string: " file string
+
+cat "$file" | grep -q "$string"
+echo "The exit status is: $?"
+```
+
+* Имате компилируем (a.k.a няма синтактични грешки) source file на езика C. Напишете shell script, който да покaзва колко е дълбоко най-дълбокото nest-ване (влагане).
+Примерен .c файл:
+
+#include <stdio.h>
+
+int main(int argc, char *argv[]) {
+
+  if (argc == 1) {
+		printf("There is only 1 argument");
+	} else {
+		printf("There are more than 1 arguments");
+	}
+
+	return 0;
+}
+Тук влагането е 2, понеже имаме main блок, а вътре в него if блок.
+
+Примерно извикване на скрипта:
+
+./count_nesting sum_c_code.c
+
+Изход:
+The deepest nesting is 2 levels
+
+```shell
+#!/bin/bash
+
+grep -o "[{}]" "${1}" | uniq -c | awk \
+    'BEGIN {max=0; count=0} \
+    $2 == "{" {count += $1} \
+    $2 == "}" {count -= $1} \
+    count > max {max=count} \
+    END {print "The deepest nesting is "  max " levels"}'
 ```
