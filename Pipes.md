@@ -138,3 +138,77 @@ cat emp.data | awk '{$1 = ""; print $0}'
 cat emp.data | awk '{sum = $2 + $3; print sum}'
 cat emp.data | awk '{sum += $2 +$3} END {print sum}'
 ```
+
+* Намерете само Group ID-то си от файлa /etc/passwd.
+```shell
+cat /etc/passwd | grep  "s0600018" | cut -d ":" -f4
+```
+
+* Колко коментара има във файла /etc/services? Коментарите се маркират със символа #, след който всеки символ на реда се счита за коментар.
+```shell
+cat /etc/services | awk '/#/ {count += 1} END {print count}'
+cat /etc/services | grep '#' | wc -l  # second option
+```
+
+* Колко файлове в /bin са 'shell script'-oве? (Колко файлове в дадена директория са ASCII text?)
+```shell
+find /bin/ -type f | xargs -I {} file {} | grep 'shell script' | wc -l
+find /bin/ -type f | xargs -I {} file {} | grep 'ASCII' | wc -l
+```
+
+* Направете списък с директориите на вашата файлова система, до които нямате достъп. Понеже файловата система може да е много голяма, търсете до 3 нива на дълбочина.
+```shell
+find / -maxdepth 3 -type d -readable
+```
+
+* Създайте следната файлова йерархия в home директорията ви:
+dir5/file1, dir5/file2, dir5/file3
+
+Посредством vi въведете следното съдържание:
+file1:
+```
+1
+2
+3
+```
+
+file2:
+```
+s
+a
+d
+f
+```
+
+file3:
+```
+3
+2
+1
+45
+42
+14
+1
+52
+```
+
+Изведете на екрана:
+	  - статистика за броя редове, думи и символи за всеки един файл
+	  - статистика за броя редове и символи за всички файлове
+	  - общия брой редове на трите файла
+    
+```shell
+wc -l -w -c dir5/file{1,2,3}
+cat dir5/file{1,2,3} | wc -l -c
+cat dir5/dile{1,2,3} | wc - l
+```
+
+* Във file2 (inplace) подменете всички малки букви с главни.
+```shell
+cat dir5/file2 | tr a-z A-Z > temp && mv temp dir5/file2
+```
+
+* Във file3 (inplace) изтрийте всички "1"-ци.
+```shell
+cat dir5/file3 | tr -d 1 > temp && mv temp dir5/file3
+```
