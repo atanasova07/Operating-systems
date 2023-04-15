@@ -212,3 +212,26 @@ cat dir5/file2 | tr a-z A-Z > temp && mv temp dir5/file2
 ```shell
 cat dir5/file3 | tr -d 1 > temp && mv temp dir5/file3
 ```
+
+* Изведете статистика за най-често срещаните символи в трите файла.
+```shell
+cat dir5/file{1,2,3} | sort | uniq -c | sort -n -r -k1
+```
+
+* Направете нов файл с име по ваш избор, чието съдържание е конкатенирани
+съдържанията на file{1,2,3}.
+```shell
+touch dir5/file4
+cat dir5/file{1,2,3} >> dir5/file4
+```
+
+* Прочетете текстов файл file2 и направете всички главни букви малки като
+запишете резултата във file1.
+```shell
+cat dir5/file2 | tr A-Z a-z > dir5/file1
+```
+
+* Намерете броя на символите, различни от буквата 'а' във файла /etc/passwd
+```shell
+cat /etc/passwd | sed 's/a//g' | wc -m
+```
