@@ -235,3 +235,73 @@ cat dir5/file2 | tr A-Z a-z > dir5/file1
 ```shell
 cat /etc/passwd | sed 's/a//g' | wc -m
 ```
+
+* Отпечатайте последната цифра на UID на всички редове между 28-ми и 46-ред в /etc/passwd.
+```shell
+cat /etc/passwd | cut -d ':' -f3 | head -n46 | tail -n+28 | awk '{print $1 % 10}'
+or
+cat /etc/passwd | cut -d ':' -f3 | head -n46 | tail -n+28 | rev | cut -c 1
+or
+ cat /etc/passwd | cut -d ':' -f3 | head -n46 | tail -n+28 | egrep -o '.$'
+```
+
+* Отпечатайте правата (permissions) и имената на всички файлове, до които имате
+read достъп, намиращи се в директорията /tmp.
+```shell
+find /tmp -readable -printf "%M %f\n" 2>/dev/null
+```
+* Намерете имената на 10-те файла във вашата home директория, чието съдържание е
+редактирано най-скоро. На първо място трябва да бъде най-скоро редактираният
+файл. Намерете 10-те най-скоро достъпени файлове. (hint: Unix time)
+```shell
+find . -type f -printf "%T@ %f \n" | sort -k1 -n -r |  cut -d ' ' -f2 | head -n10
+find . -type f -printf "%A@ %f \n" | sort -k1 -n -r |  cut -d ' ' -f2 | head -n10
+```
+
+* да приемем, че файловете, които съдържат C код, завършват на `.c` или `.h`.
+Колко на брой са те в директорията `/usr/include`?
+Колко реда C код има в тези файлове?
+```shell
+find /usr/include | grep '.[ch]$' | wc -l
+cat $(find /usr/include | grep '.[ch]') 2>/dev/null | wc -l
+```
+
+* Даден ви е ASCII текстов файл - /etc/services. Отпечатайте хистограма на 10-те най-често срещани думи.
+Дума наричаме непразна последователност от букви. Не правим разлика между главни и малки букви.
+Хистограма наричаме поредица от редове, всеки от които има вида:
+<брой срещания> <какво се среща толкова пъти>
+```shell
+cat /etc/services | grep -o '[a-zA-Z]*' | tr [A-Z] [a-z] | sort | uniq -c | sort -k1 -nr | head -n10
+```
+
+* Вземете факултетните номера на студентите (описани във файла
+<РЕПО>/exercises/data/mypasswd.txt) от СИ и ги запишете във файл si.txt сортирани.
+Студент е част от СИ, ако home директорията на този потребител (според
+<РЕПО>/exercises/data/mypasswd.txt) се намира в /home/SI директорията.
+```shell
+ cat /srv/fmi-os/exercises/data/mypasswd.txt | grep '/home/SI/' | cut -d ':' -f1 | sed 's/s//g' | grep -v '[a-zA-Z]' | sort -n > si.txt
+```
+
+* За всяка група от /etc/group изпишете "Hello, <група>", като ако това е вашата група, напишете "Hello, <група> - I am here!".
+```shell
+awk -F ':' '$1=="students" {print "Hello, " $1 " -I am here"} $1!="students" {print "Hello, " $1}' /etc/group
+```
+
+* Shell Script-овете са файлове, които по конвенция имат разширение .sh. Всеки
+такъв файл започва с "#!<interpreter>" , където <interpreter> указва на
+операционната система какъв интерпретатор да пусне (пр: "#!/bin/bash",
+"#!/usr/bin/python3 -u").
+Намерете всички .sh файлове в директорията `/usr` и нейните поддиректории, и
+проверете кой е най-често използваният интерпретатор.
+```shell
+ find /usr -type f -iname "*.sh" -exec head -n1 {} \; | grep "^#!" | cut -d '!' -f2 | sort -d | uniq -c | sort -k1 -nr | head -n1 | awk '{print $2}'
+/bin/sh
+```
+
+* Изведете GID-овете на 5-те най-големи групи спрямо броя потребители, за които
+съответната група е основна (primary).
+(*) Изведете имената на съответните групи.
+```shell
+cat /etc/passwd | cut -d ':' -f4 | sort | uniq -c | sort -k1 -nr | head -n5 | awk '{print $2}' | xargs -I {} grep ':{}:' /etc/group | awk -F ':' '{print $1 " " $3}'
+```
+
