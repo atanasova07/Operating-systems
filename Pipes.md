@@ -305,3 +305,37 @@ awk -F ':' '$1=="students" {print "Hello, " $1 " -I am here"} $1!="students" {pr
 cat /etc/passwd | cut -d ':' -f4 | sort | uniq -c | sort -k1 -nr | head -n5 | awk '{print $2}' | xargs -I {} grep ':{}:' /etc/group | awk -F ':' '{print $1 " " $3}'
 ```
 
+* Направете файл eternity. Намерете всички файлове, намиращи се във вашата home
+директория и нейните поддиректории, които са били модифицирани в последните
+15мин (по възможност изключете .).  Запишете във eternity името (път) на
+файла и времето (unix time) на последната промяна.
+```shell
+find . -type f -mmin -15 ! -name ".*" -printf "%p %T@\n" > eternity
+```
+
+* Копирайте файл <РЕПО>/exercises/data/population.csv във вашата home директория.
+Използвайки файлa, намерете колко е общото население на света
+през 2008 година. А през 2016?
+```shell
+cp /srv/fmi-os/exercises/data/population.csv .
+cat population.csv | grep ",2008," | awk -F ',' '{sum+=$NF} END {print sum}'
+cat population.csv | grep ",2016," | awk -F ',' '{sum+=$NF} END {print sum}'
+```
+
+* Използвайки файл population.csv, намерете през коя година в България има най-много население.
+```shell
+cat population.csv | grep "Bulgaria" | awk -F',' 'BEGIN {year=0; num=0} num < $4 {num = $4; year = $3} END {print year}'
+```
+* Използвайки файл population.csv, намерете коя държава има най-много население през 2016. А коя е с най-малко население?
+```shell
+cat population.csv | grep "2016" | awk -F',' 'BEGIN {num=0} num < $NF {num = $NF} END {print $(NF-3)}'
+cat population.csv | grep "2016" | awk -F',' 'BEGIN {num=INT_MAX} num > $NF {num = $NF} END {print $(NF-3)}'
+```
+
+* Използвайки файл population.csv, намерете коя държава е на 42-ро място по
+население през 1969. Колко е населението й през тази година?
+```shell
+cat population.csv | grep ",1969," | awk -F',' '{print $(NF-3) " " $NF}' | sort -rn | cut -f1 | head -n42 | tail -n1
+```
+
+* 
