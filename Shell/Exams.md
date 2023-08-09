@@ -402,3 +402,42 @@ done
 toReplace=$(cat $1 | grep "$3=.*")
 sed -i -E "s/$toReplace/$3=$line/g" $1
 ```
+
+* Напишете скрипт, който извежда името на потребителския акаунт, в чиято home
+директория има най-скоро променен обикновен файл и кой е този файл. Напишете скрипта с подходящите проверки, така че да бъде валиден инструмент.
+```shell
+#!/bin/bash
+
+if [[ $# -ne 0 ]]; then
+        echo "Invalid number of arguments"
+        exit 1
+fi
+
+cat /etc/passwd | cut -d':' -f6 | grep "home" | xargs -I {} find "{}" -type f -printf "%TT %f %u\n" 2>/dev/null | sort -k1 -nr | head -n1 | cut -d' ' -f2,3
+```
+
+* Напишете скрипт, който получава задължителен първи позиционен параметър – директория и незадължителен втори – число. Скриптът трябва да проверява подадената директория
+и нейните под-директории и да извежда имената на:  
+а) при подаден на скрипта втори параметър – всички файлове с брой hardlink-ове поне равен на
+параметъра;  
+б) при липса на втори параметър – всички symlink-ове с несъществуващ destination (счупени
+symlink-ове).  
+Забележка:За удобство приемаме, че ако има подаден втори параметър, то той е число
+```shell
+if [[ ! -d $1 ]]; then
+        echo "The first argument must be a directory"
+        exit 1
+fi
+
+if [[ $# -gt 2 ]]; then
+        echo "Invalid number of arguments"
+        exit 1
+fi
+
+if [[ $# -eq 2 ]]; then
+        find $1 -type f -printf "%n %f\n" 2>/dev/null | awk -v param=$2 '$1 >= param {print $2}'
+elif [[ $# -eq 1 ]]; then
+        find $1 -type l 2>/dev/null -exec [ ! -e {} ] \; -printf "%f\n"
+fi
+```
+
