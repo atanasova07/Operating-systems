@@ -385,3 +385,579 @@ int main(int argc, char** argv){
         exit(0);
 }
 ```
+* Напишете програма на C, която реализира simple command prompt. Тя изпълнява в
+цикъл следната поредица действия:   
+1. Извежда промпт на стандартния изход.    
+2. Прочита име на команда.    
+3. Изпълнява без параметри прочетената команда.    
+Командите се търсят в директорията /bin. За край на програмата се смята въвеждането на exit.
+
+```c
+#include <fcntl.h>
+#include <err.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char** argv){
+        if(argc != 1){
+                errx(1, "ERROR: Invalid number of arguments!");
+        }
+
+        char prompt[16] = "Enter command: ";
+        if(write(0, &prompt, sizeof(prompt)) == -1) {
+                err(2, "ERROR: Could not write to prompt!");
+        }
+
+        int bytes_count;
+        char buf[100];
+        while((bytes_count = read(1, &buf, sizeof(buf))) > 0){
+                buf[bytes_count - 1] = '\0';
+
+                if(strcmp(buf, "exit") == 0){
+                        exit(0);
+                }
+
+                pid_t pid = fork();
+                if(pid == -1){
+                        err(4, "ERROR: Could not fork!");
+                }
+
+                if(pid == 0){
+                        if(execlp(buf, buf, (char*)NULL) == -1){
+                                err(5, "ERROR: Could not exec %s command!", buf);
+                        }
+                }
+
+                int status;
+                if(wait(&status) == -1){
+                        err(6, "ERROR: Could not wait for child to finish!");
+                }
+
+                if(!WIFEXITED(status)){
+                        errx(7, "ERROR: Child process did not terminate normally!");
+                }
+
+                if(WEXITSTATUS(status) != 0){
+                        errx(8, "ERROR: Child process finished with exit code not 0");
+                }
+
+                if(write(0, &prompt, sizeof(prompt)) == -1){
+                        err(2, "ERROR: Could not write to prompt!");
+                }
+        }
+        if(bytes_count == -1){
+                err(3, "ERROR: Could not read!");
+        }
+}
+```
+
+* 1 Напишете програма на C, която използвайки външни shell команди през pipe() да
+извежда статистика за броя на използване на различните shell-ове от потребителите, дефинирани в системата. Изходът да бъде сортиран във възходящ ред според брой използвания на shell-овете.    
+Примерно извикване и изход:    
+$ ./main    
+1 /bin/sync    
+3 /bin/bash    
+7 /bin/false    
+17 /usr/sbin/nologin
+
+```c
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <err.h>
+
+// cut -d':' -f7 /etc/passwd | sort | uniq -c | sort -n -k1
+
+int main(int argc, char** argv){
+        int p[2];
+        if(pipe(p) == -1){
+                err(1, "ERROR: Could not pipe - the first one!");
+        }
+
+        pid_t pid = fork();
+        if(pid == -1){
+                err(2, "ERROR: Could not fork!");
+        }
+
+        if(pid == 0){
+                close(p[0]);
+                if(dup2(p[1], 1) == -1) {
+                        err(3, "ERROR: Could not dup!");
+                }
+                if(execlp("cut", "cut", "-d:", "-f7", "/etc/passwd", (char*)NULL) == -1){
+                        err(4, "ERROR: Could not exec!");
+                }
+        }
+        else {
+                close(p[1]);
+        }
+
+        int p2[2];
+        if(pipe(p2) == -1){
+                err(1, "ERROR: Could not pipe - the second one!");
+        }
+        pid_t pid2 = fork();
+        if(pid2 == -1){
+                err(2, "ERROR: Could not fork!");
+        }
+
+        if(pid2 == 0){
+                close(p2[0]);
+                if(dup2(p[0], 0) == -2){
+                        err(3, "ERROR: Could not dup!");
+                }
+                if(dup2(p2[1], 1) == -1){
+                        err(3, "ERROR: Could not dup!");
+                }
+                if(execlp("sort", "sort", (char*)NULL) == -1){
+                        err(4, "ERROR: Could not exec!");
+                }
+        }
+        else {
+                close(p2[1]);
+        }
+
+        int p3[2];
+        if(pipe(p3) == -1){
+                err(1, "ERROR: Could not pipe - the third one!");
+        }
+        pid_t pid3 = fork();
+        if(pid3 == -1){
+                err(2, "ERROR: Could not fork!");
+        }
+        if(pid3 == 0){
+                close(p3[0]);
+                if(dup2(p2[0], 0) == -1){
+                        err(3, "ERROR: Could not dup!");
+                }
+                if(dup2(p3[1], 1) == -1){
+                        err(3, "ERROR: Could not dup!");
+                }
+                if(execlp("uniq", "uniq", "-c", (char*)NULL) == -1){
+                        err(4, "ERROR: Could not exec!");
+                }
+        }
+        else {
+                close(p3[1]);
+        }
+
+        close(p[0]);
+        close(p2[0]);
+
+        while(wait(NULL) > 0);
+
+        if(dup2(p3[0], 0) == -1){
+                err(3, "ERROR: Could not dup!");
+        }
+        if(execlp("sort", "sort", "-n", "-k1", (char*)NULL) == -1){
+                err(4, "ERROR: Could not exec!");
+        }
+        close(p3[0]);
+
+        exit(0);
+}
+```
+ *Напишете програма на C, която приема незадължителен параметър – име на команда. Ако не е зададена команда като параметър, да се ползва командата echo. Максималната
+допустима дължина на командата е 4 знака.   
+Програмата чете низове (с максимална дължина 4 знака) от стандартния си вход, разделени с интервали (0x20) или знак за нов ред (0x0A). Ако някой низ е с дължина по-голяма от 4 знака, то програмата да терминира със съобщение за грешка.   
+Подадените на стандартния вход низове програмата трябва да третира като множество от параметри за дефинираната команда. Програмата ви трябва да изпълни командата колкото пъти е необходимо с максимум два низа като параметри, като изчаква изпълнението да приключи, преди да започне ново изпълнение.   
+Примерни вход, извиквания и изходи:    
+$ cat f1   
+a1   
+$ cat f2    
+a2   
+$ cat f3   
+a3    
+$ echo -e "f1\nf2 f3" | ./main cat   
+a1   
+a2   
+a3    
+$ echo -e "f1\nf2 f3" | ./main    
+f1 f2   
+f3  
+
+```c
+#include <stdlib.h>
+#include <err.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+
+int main(int argc, char** argv){
+        if(argc > 2) {
+                err(1, "ERROR: Invalid number of arguments!");
+        }
+        char command[1024];
+
+        if(argc == 1) {
+                strcpy(command, "echo");
+        }
+        if(argc == 2){
+                strcpy(command, argv[1]);
+                if(strlen(command) > 4){
+                        errx(2, "ERROR: Command length must be less than four!");
+                }
+        }
+
+        char b;
+        int bytes_count;
+        char buff[1024];
+        int index = 0;
+        while((bytes_count = read(0, &b, sizeof(b))) > 0){
+                if(b == '\n' || b == ' ' || b == '\t'){
+                        buff[index] = '\0';
+                        index = 0;
+
+                        if(strlen(buff) > 4){
+                                errx(4, "ERROR: Parameter length must be less than four!");
+                        }
+                        pid_t pid = fork();
+                        if(pid == -1){
+                                err(5, "ERROR: Could not fork!");
+                        }
+                        if(pid == 0){
+                                if(execlp(command, command, buff, (char*)NULL) == -1){
+                                        err(6, "ERROR: Could not exec!");
+                                }
+                        }
+                        int status;
+                        if(wait(&status) == -1){
+                                err(7, "ERROR: Could not wait for child process to finish!");
+                        }
+                        if(!WIFEXITED(status)){
+                                errx(8, "ERROR: Child process did not terminate normally!");
+                        }
+                        if(WEXITSTATUS(status) != 0){
+                                errx(9, "ERROR: Child process finished with exit status not 0!");
+                        }
+                }
+                else {
+                        buff[index] = b;
+                        index += 1;
+                }
+        }
+        if(bytes_count == -1){
+                err(3, "ERROR: Could not read!");
+        }
+}
+```
+
+* Напишете програма на C, която приема параметър – име на директория. Програмата
+трябва да извежда името на най-скоро променения (по съдържание) файл в тази директория и нейните под-директории, чрез употреба на външни шел команди през pipe().
+
+```c
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <err.h>
+#include <stdint.h>
+
+//find $1 -mindepth 1 -type f -printf "%T@ %f\n" | sort -k1 -nr | head -n1 | cut -d' ' -f2
+
+void check_child(void);
+void check_child(void){
+        int status;
+
+        if(wait(&status) == -1){
+                err(6, "ERROR: Could not wait for child process to finish!");
+        }
+
+        if(!WIFEXITED(status)){
+                errx(7, "ERROR: Child process did not terminate normally");
+        }
+
+        if(WEXITSTATUS(status) != 0){
+                errx(8, "ERROR: Child process exit with status not 0");
+        }
+}
+
+int main(int argc, char** argv){
+        if(argc != 2){
+                errx(1, "ERROR: Invalid number of arguments!");
+        }
+
+        int p[2];
+        if(pipe(p) == -1){
+                err(2, "ERROR: Could not pipe!");
+        }
+        pid_t pid = fork();
+        if(pid == -1){
+                err(3, "ERROR: Could not fork!");
+        }
+
+        if(pid == 0){
+                close(p[0]);
+                if(dup2(p[1], 1) == -1){
+                        err(4, "ERROR: Could not dup!");
+                }
+                if(execlp("find", "find", argv[1], "-mindepth", "1", "-type", "f", "-printf", "%T@ %f\n", (char*)NULL) == -1){
+                        err(5, "ERROR: Could not exec!");
+                }
+        }
+
+        close(p[1]);
+        check_child();
+
+        int p1[2];
+        if(pipe(p1) == -1){
+                err(2, "ERROR: Could not pipe!");
+        }
+        pid_t pid1 = fork();
+        if(pid1 == -1){
+                err(3, "ERROR: Could not fork");
+        }
+        if(pid1 == 0){
+                close(p1[0]);
+                if(dup2(p[0], 0) == -1){
+                        err(4, "ERROR: Could not dup!");
+                }
+                if(dup2(p1[1], 1) == -1){
+                        err(4, "ERROR: Could not dup!");
+                }
+                if(execlp("sort", "sort", "-k1", "-nr", (char*)NULL) == -1){
+                        err(5, "ERROR: Could not exec!");
+                }
+        }
+        close(p1[1]);
+        close(p[0]);
+        check_child();
+
+        int p2[2];
+        if(pipe(p2) == -1){
+                err(2, "ERROR: Could not pipe!");
+        }
+        pid_t pid2 = fork();
+        if(pid2 == -1){
+                err(3, "ERROR: Could not fork!");
+        }
+        if(pid2 == 0){
+                close(p2[0]);
+                if(dup2(p1[0], 0) == -1){
+                        err(4, "ERROR: Could not dup!");
+                }
+                if(dup2(p2[1], 1) == -1){
+                        err(4, "ERROR: Could not dup!");
+                }
+                if(execlp("head", "head", "-n1", (char*)NULL) == -1){
+                        err(5, "ERROR: Could not exec!");
+                }
+        }
+        close(p1[0]);
+        close(p2[1]);
+        check_child();
+
+        if(dup2(p2[0], 0) == -1){
+                err(4, "ERROR: Could not dup!");
+        }
+        if(execlp("cut", "cut", "-d", " ", "-f2", (char*)NULL) == -1){
+                err(5, "ERROR: Could not exec!");
+        }
+
+}
+```
+
+*Напишете програма-наблюдател P, която изпълнява друга програма Q и я рестартира, когато Q завърши изпълнението си. На командния ред на P се подават следните параметри:    
+• праг за продължителност в секунди – едноцифрено число от 1 до 9   
+• Q   
+• незадължителни параметри на Q   
+P работи по следния алгоритъм:   
+• стартира Q с подадените параметри   
+• изчаква я да завърши изпълнението си    
+• записва в текстов файл run.log един ред с три полета - цели числа (разделени с интервал):   
+– момент на стартиране на Q (Unix time)    
+– момент на завършване на Q (Unix time)    
+– код за грешка, с който Q е завършила (exit code)    
+• проверява дали е изпълнено условието за спиране и ако не е, преминава отново към стартирането на Q    
+Условие за спиране: Ако наблюдателят P установи, че при две последователни изпълнения на Q са били изпълнени и двете условия:   
+1. кодът за грешка на Q е бил различен от 0;   
+2. разликата между момента на завършване и момента на стартиране на Q е била по-малка от подадения като първи параметър на P праг;    
+то P спира цикъла от изпълняване на Q и сам завършва изпълнението си.     
+Текущото време във формат Unix time (секунди от 1 януари 1970 г.) можете да вземете с извикване на системната функция time() с параметър NULL; функцията е дефинирана в time.h. Ако изпълнената програма е била прекъсната от подаден сигнал, това се приема за завършване с код за грешка 129.
+
+```c
+#include <fcntl.h>
+#include <err.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+int main(int argc, char** argv){
+        if(argc < 3){
+                errx(1, "ERROR: Invalid number of arguments!");
+        }
+
+        int fd;
+        if((fd = open("run.log", O_WRONLY | O_CREAT, 0766)) == -1){
+                err(2, "ERROR: Could not open run.log file for writing!");
+        }
+
+        int sec = atoi(argv[1]);
+        char* Q = argv[2];
+        char** args = argv + 2;
+        int to_stop = 0;
+
+
+        while(1){
+                pid_t pid = fork();
+                if(pid == -1){
+                        err(3, "ERROR: Could not fork!");
+                }
+
+                if(pid == 0){
+                        if(execvp(Q, args) == -1){
+                                err(4, "ERROR: Could not exec!");
+                        }
+                }
+                else {
+                        time_t start = time(NULL);
+                        int status;
+                        if(wait(&status) == -1){
+                                err(5, "ERROR: Could not wait for child to finish!");
+                        }
+                        time_t finish = time(NULL);
+
+                        int exit_code;
+                        if(WIFEXITED(status)){
+                                exit_code = WEXITSTATUS(status);
+                        }
+                        else {
+                                exit_code = 129;
+                        }
+
+                        dprintf(fd, "%ld %ld %d\n", start, finish, exit_code);
+
+                        if(exit_code != 0 && (finish - start) < sec){
+                                if(to_stop == 0){
+                                        to_stop = 1;
+                                }
+                                else {
+                                        break;
+                                }
+                        }
+                        else {
+                                to_stop = 0;
+                        }
+                }
+        }
+
+        close(fd);
+}
+```
+
+* Напишете две програми на C (foo и bar), които си комуникират през наименована
+тръба. Програмата foo приема параметър - име на файл, програмата bar приема параметър - команда като абсолютен път до изпълним файл.   
+Примерни извиквания и ред на изпълнение (в отделни терминали):    
+./foo a.txt   
+./bar /usr/bin/sort   
+Програмата foo трябва да изпълнява външна команда cat с аргумент името на подадения файл, така че съдържанието му да се прехвърли през тръбата към програмата bar, която от своя страна трябва да изпълни подадената и като аргумент команда (без параметри; /usr/bin/sort в примера), която да обработи получените през тръбата данни, четейки от стандартен вход. Еквивалент на горния пример би било следното изпълнение:       
+cat a.txt | /usr/bin/sort
+
+```c
+foo.c
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <err.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+
+int main(int argc, char** argv){
+        if(argc != 2){
+                errx(1, "ERROR: Invalid number of arguments!");
+        }
+
+        if(mkfifo("pipe.txt", 0766) == -1){
+                err(2, "ERROR: Could not mkfifo!");
+        }
+
+        pid_t pid = fork();
+        if(pid == -1){
+                err(3, "ERROR: Could not fork!");
+        }
+        if(pid == 0){
+                int fd;
+                if((fd = open("pipe.txt", O_WRONLY)) == -1){
+                        err(4, "ERROR: Could not open pipe.txt for writing!");
+                }
+                if(dup2(fd, 1) == -1){
+                        err(5, "ERROR: Could not dup!");
+                }
+                if(execlp("cat", "cat", argv[1], (char*)NULL) == -1){
+                        err(6, "ERROR: Could not exec!");
+                }
+        }
+        int status;
+        if(wait(&status) == -1){
+                err(7, "ERROR: Could not wait for child process to finish!");
+        }
+        if(!WIFEXITED(status)){
+                errx(8, "ERROR: Child process did not terminate normally!");
+        }
+        if(WEXITSTATUSE(status) != 0){
+                errx(9, "ERROR: Child process finished with exit status not 0!");
+        }
+}
+
+-----
+bar.c
+
+#include <stdlib.h>
+#include <fcntl.h>
+#include <err.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <sys/wait.h>
+
+
+int main(int argc, char** argv){
+        if(argc != 2){
+                errx(1, "ERROR: Invalid number of arguments!");
+        }
+
+        pid_t pid = fork();
+        if(pid == -1){
+                err(2, "ERROR: Could not fork!");
+        }
+        if(pid == 0){
+                int fd;
+                if((fd = open("pipe.txt", O_WRONLY)) == -1){
+                        err(3, "ERROR: Could not open pipe.txt for wirting!");
+                }
+                if(dup2(fd, 0) == -1){
+                        err(4, "ERROR: Could not dup!");
+                }
+                if(execl(argv[1], argv[1], (char*)NULL) == -1){
+                        err(5, "ERROR: Could not exec!");
+                }
+        }
+        int status;
+        if(wait(&status) == -1){
+                err(6, "ERROR: Could not wait for child process to finish!");
+        }
+        if(!WIFEXITED(status)){
+                errx(7, "ERROR: Child process did not terminate normally!");
+        }
+        if(WEXITSTATUS(status) != 0){
+                errx(8, "ERROR: Child process exit with status not 0");
+        }
+        if(unlink("pipe.txt") == -1){
+                err(9, "ERROR: Could not unlink!");
+        }
+}
+```
